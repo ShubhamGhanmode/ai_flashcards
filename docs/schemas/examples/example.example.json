@@ -1,0 +1,30 @@
+﻿{
+  "schema_version": "1.0",
+  "card_id": "22222222-2222-2222-2222-222222222222",
+  "example": "Search for 13 in the tree: start at 10 (go right), then 15 (go left), then 12 (go right), then 13 (found).",
+  "steps": [
+    "Start at the root key 10.",
+    "13 > 10 so move to the right child (15).",
+    "13 < 15 so move to the left child (12).",
+    "13 > 12 so move to the right child (13).",
+    "Match found at key 13."
+  ],
+  "pitfalls": [
+    "Stopping early when a child is null.",
+    "Violating the BST invariant during insertion."
+  ],
+  "source_refs": [
+    "src_pdf_1"
+  ],
+  "generation_metadata": {
+    "model": "gpt-4.1-mini",
+    "prompt_version": "EXAMPLE_SYSTEM_PROMPT_v1",
+    "tokens": {
+      "prompt": 121,
+      "completion": 184,
+      "total": 305
+    },
+    "timestamp": "2026-01-23T20:31:10Z",
+    "rag_used": true
+  }
+}

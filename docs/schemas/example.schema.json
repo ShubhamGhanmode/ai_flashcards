@@ -1,0 +1,117 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "example.schema.json",
+  "title": "ExampleResponse",
+  "description": "Response schema for concept example generation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "card_id",
+    "example",
+    "generation_metadata"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version for forward compatibility"
+    },
+    "card_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the card this example belongs to"
+    },
+    "example": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "The main example text explaining the concept"
+    },
+    "steps": {
+      "type": "array",
+      "description": "Optional step-by-step breakdown of the example",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "pitfalls": {
+      "type": "array",
+      "description": "Common mistakes or misconceptions to avoid",
+      "maxItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "description": "References to sources used for this example",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50
+      }
+    },
+    "generation_metadata": {
+      "type": "object",
+      "description": "Metadata about the generation process",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "prompt_version",
+        "tokens",
+        "timestamp",
+        "rag_used"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Model used for generation"
+        },
+        "prompt_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Version of the prompt template used"
+        },
+        "tokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "prompt",
+            "completion",
+            "total"
+          ],
+          "properties": {
+            "prompt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "completion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the example was generated"
+        },
+        "rag_used": {
+          "type": "boolean",
+          "description": "Whether RAG was used to generate this example"
+        }
+      }
+    }
+  }
+}

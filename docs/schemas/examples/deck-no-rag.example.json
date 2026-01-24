@@ -1,0 +1,70 @@
+{
+    "schema_version": "1.0",
+    "deck_id": "7a9b3c12-4e56-7f89-0abc-def123456789",
+    "topic": "Python List Comprehensions",
+    "difficulty_level": "beginner",
+    "concepts": [
+        {
+            "card_id": "aaaa1111-1111-1111-1111-111111111111",
+            "title": "Basic Syntax",
+            "bullets": [
+                "List comprehensions create lists using a compact expression.",
+                "Basic form: [expression for item in iterable].",
+                "The expression transforms each item from the iterable.",
+                "Result is a new list containing all transformed values.",
+                "More readable than equivalent for-loop with append."
+            ],
+            "example_possible": true,
+            "example_hint": "Show a simple list comprehension that squares numbers."
+        },
+        {
+            "card_id": "bbbb2222-2222-2222-2222-222222222222",
+            "title": "Filtering with Conditions",
+            "bullets": [
+                "Add an if clause to filter items: [expr for x in iter if cond].",
+                "Only items where the condition is True are included.",
+                "The condition is evaluated for each item in sequence.",
+                "Multiple conditions can be combined with and/or.",
+                "Filtering happens before the expression is applied."
+            ],
+            "example_possible": true,
+            "example_hint": "Filter even numbers from a list."
+        },
+        {
+            "card_id": "cccc3333-3333-3333-3333-333333333333",
+            "title": "Nested Comprehensions",
+            "bullets": [
+                "Comprehensions can iterate over multiple sequences.",
+                "Outer loop comes first, inner loop follows.",
+                "Useful for flattening nested lists.",
+                "Can also create matrices or grids.",
+                "Readability decreases with nesting depth."
+            ],
+            "example_possible": true,
+            "example_hint": "Flatten a 2D list into a 1D list."
+        },
+        {
+            "card_id": "dddd4444-4444-4444-4444-444444444444",
+            "title": "When to Avoid",
+            "bullets": [
+                "Avoid when logic is complex or has side effects.",
+                "Prefer loops when debugging is needed.",
+                "Long comprehensions hurt readability.",
+                "Generator expressions are better for large data.",
+                "Not suitable when you need early termination."
+            ],
+            "example_possible": false
+        }
+    ],
+    "generation_metadata": {
+        "model": "gpt-4.1-mini",
+        "prompt_version": "DECK_SYSTEM_PROMPT_v1",
+        "tokens": {
+            "prompt": 285,
+            "completion": 510,
+            "total": 795
+        },
+        "timestamp": "2026-01-23T21:15:00Z",
+        "rag_used": false
+    }
+}

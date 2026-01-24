@@ -1,0 +1,77 @@
+﻿{
+  "schema_version": "1.0",
+  "deck_id": "3f2a6c64-0e12-4f51-9c55-7b7b2a9f2a61",
+  "topic": "Binary Search Trees",
+  "scope": "Operations and invariants",
+  "difficulty_level": "intermediate",
+  "concepts": [
+    {
+      "card_id": "11111111-1111-1111-1111-111111111111",
+      "title": "BST invariant",
+      "bullets": [
+        "Left subtree keys are less than the node key.",
+        "Right subtree keys are greater than the node key.",
+        "Invariant enables logarithmic search on average.",
+        "Insertion and deletion must preserve ordering.",
+        "Duplicates need a consistent policy to avoid ambiguity."
+      ],
+      "example_possible": true,
+      "example_hint": "Show a small tree and verify ordering at each node.",
+      "source_refs": ["src_pdf_1"]
+    },
+    {
+      "card_id": "22222222-2222-2222-2222-222222222222",
+      "title": "Search operation",
+      "bullets": [
+        "Compare the target key to the current node key.",
+        "Go left if the target is smaller; right if larger.",
+        "Continue until the key is found or a null child is reached.",
+        "Time complexity depends on tree height.",
+        "Balanced trees provide better worst-case behavior."
+      ],
+      "example_possible": true,
+      "example_hint": "Trace a lookup path on a 7-node tree.",
+      "source_refs": ["src_pdf_1"]
+    },
+    {
+      "card_id": "33333333-3333-3333-3333-333333333333",
+      "title": "Deletion cases",
+      "bullets": [
+        "Leaf deletion removes the node directly.",
+        "Single-child deletion splices the child upward.",
+        "Two-child deletion replaces with in-order successor.",
+        "Successor comes from the right subtree minimum.",
+        "Invariant must hold after re-linking nodes."
+      ],
+      "example_possible": true,
+      "example_hint": "Walk through removing a node with two children.",
+      "source_refs": ["src_pdf_1"]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "src_pdf_1",
+      "resource_id": "res_abc123",
+      "title": "BST Lecture Notes",
+      "page_start": 2,
+      "page_end": 4,
+      "snippet": "Binary search trees maintain a strict ordering property..."
+    }
+  ],
+  "generation_metadata": {
+    "model": "gpt-4.1-mini",
+    "prompt_version": "DECK_SYSTEM_PROMPT_v1",
+    "tokens": {
+      "prompt": 342,
+      "completion": 618,
+      "total": 960
+    },
+    "timestamp": "2026-01-23T20:30:00Z",
+    "rag_used": true,
+    "retrieval_metrics": {
+      "chunks_retrieved": 5,
+      "avg_similarity": 0.78,
+      "distinct_pages": 3
+    }
+  }
+}

@@ -1,0 +1,242 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "deck.schema.json",
+  "title": "DeckResponse",
+  "description": "Response schema for flashcard deck generation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "deck_id",
+    "topic",
+    "difficulty_level",
+    "concepts",
+    "generation_metadata"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version for forward compatibility"
+    },
+    "deck_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the deck"
+    },
+    "topic": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "The topic for which flashcards were generated"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Narrowed subtopic if the original topic was too broad"
+    },
+    "difficulty_level": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "intermediate",
+        "advanced"
+      ],
+      "description": "Target difficulty level for the content"
+    },
+    "concepts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 7,
+      "description": "Array of concept cards in the deck",
+      "items": {
+        "$ref": "#/$defs/concept"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "description": "Source references when RAG is used",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "generation_metadata": {
+      "$ref": "#/$defs/generation_metadata"
+    }
+  },
+  "$defs": {
+    "concept": {
+      "type": "object",
+      "description": "A single concept card with title and bullet points",
+      "additionalProperties": false,
+      "required": [
+        "card_id",
+        "title",
+        "bullets",
+        "example_possible"
+      ],
+      "properties": {
+        "card_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique identifier for this card"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Short title for the concept"
+        },
+        "bullets": {
+          "type": "array",
+          "description": "Exactly 5 bullet points explaining the concept",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "example_possible": {
+          "type": "boolean",
+          "description": "Whether an example can be generated for this concept"
+        },
+        "example_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Hint for what kind of example could be shown"
+        },
+        "source_refs": {
+          "type": "array",
+          "description": "References to sources used for this concept",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "resource_id",
+        "title"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "page_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "snippet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "content_hash": {
+          "type": "string",
+          "minLength": 8
+        }
+      }
+    },
+    "generation_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "prompt_version",
+        "tokens",
+        "timestamp",
+        "rag_used"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "prompt",
+            "completion",
+            "total"
+          ],
+          "properties": {
+            "prompt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "completion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "rag_used": {
+          "type": "boolean"
+        },
+        "retrieval_metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "chunks_retrieved",
+            "avg_similarity",
+            "distinct_pages"
+          ],
+          "properties": {
+            "chunks_retrieved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "avg_similarity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "distinct_pages": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}
