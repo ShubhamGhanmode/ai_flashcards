@@ -10,6 +10,12 @@ Phase 1 complete (audited 2026-01-24). Phase 2 ready.
 docker compose -f docker-compose.dev.yml up
 ```
 
+## Database migrations
+Run migrations before using deck endpoints against a fresh database:
+```bash
+cd backend && .venv\Scripts\alembic.exe upgrade head
+```
+
 ## Tests
 ```bash
 cd backend && .venv\Scripts\python.exe -m pytest -v
@@ -20,6 +26,7 @@ cd frontend && npm test
 - `PLAN.md` (architecture and phases)
 - `PHASE1.md` (repo setup and foundations)
 - `PHASE2.md` (schema-first deck generation)
+- `PHASE3.md` (gated example generation, caching, and UI integration)
 - `docs/schemas/` (JSON schema definitions)
 
 ## API conventions

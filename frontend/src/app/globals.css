@@ -33,9 +33,9 @@
   --shadow-glow: 0 0 40px rgba(245, 158, 11, 0.15);
   
   /* Typography */
-  --font-display: 'Sora', system-ui, sans-serif;
-  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-display: var(--font-sora), system-ui, sans-serif;
+  --font-body: var(--font-ibm-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
   
   /* Spacing */
   --space-unit: 8px;

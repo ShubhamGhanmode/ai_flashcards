@@ -1,8 +1,6 @@
 # Docker Compose configuration for development
 # Run with: docker compose up --build
 
-version: "3.8"
-
 services:
   # PostgreSQL Database
   postgres:

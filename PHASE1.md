@@ -46,14 +46,14 @@ Use these exact versions for consistency:
 
 By the end of Phase 1, you should have:
 
-- [ ] `backend/` and `frontend/` project scaffolds
-- [ ] Dockerfiles and `docker-compose.yml`
-- [ ] `.env.example` with required variables
-- [ ] FastAPI `/health` endpoint returning `{"status": "ok"}`
-- [ ] Next.js homepage with topic input form
-- [ ] Linting, formatting, and pre-commit hooks configured
-- [ ] Testing framework scaffolds (pytest, Jest)
-- [ ] Everything running via `docker compose up`
+- [x] `backend/` and `frontend/` project scaffolds
+- [x] Dockerfiles and `docker-compose.yml`
+- [x] `.env.example` with required variables
+- [x] FastAPI `/health` endpoint returning `{"status": "ok"}`
+- [x] Next.js homepage with topic input form
+- [x] Linting, formatting, and pre-commit hooks configured
+- [x] Testing framework scaffolds (pytest, Jest)
+- [x] Everything running via `docker compose up`
 
 ---
 
@@ -1331,14 +1331,14 @@ pre-commit run --all-files
 
 Before moving to Phase 2, verify these are all true:
 
-- [ ] `docker compose up --build` runs without errors
-- [ ] Backend `/health` returns `{"status": "ok", ...}`
-- [ ] Backend Swagger docs load at http://localhost:8000/docs
-- [ ] Frontend loads at http://localhost:3000
-- [ ] Topic input and difficulty dropdown are visible
-- [ ] `pytest` passes all tests in backend
-- [ ] `npm test` passes all tests in frontend
-- [ ] `pre-commit run --all-files` passes
+- [x] `docker compose up --build` runs without errors
+- [x] Backend `/health` returns `{"status": "ok", ...}`
+- [x] Backend Swagger docs load at http://localhost:8000/docs
+- [x] Frontend loads at http://localhost:3000
+- [x] Topic input and difficulty selector are visible
+- [x] `pytest` passes all tests in backend
+- [x] `npm test` passes all tests in frontend
+- [x] `pre-commit run --all-files` passes
 
 ---
 

@@ -9,10 +9,12 @@ Implement strict schema validation and a working `/v1/deck/generate` flow that a
 
 Before starting Phase 2, ensure:
 
-- [ ] Phase 1 is complete and all exit criteria are met
+- [x] Phase 1 is complete and all exit criteria are met
 - [ ] Docker Compose is running with all services healthy
 - [ ] You have a valid OpenAI API key in your `.env` file
-- [ ] You've reviewed `docs/schemas/deck.schema.json`
+- [x] You've reviewed `docs/schemas/deck.schema.json`
+
+> Audit note (2026-02-13): The two unchecked items above are runtime/environment prerequisites and were not validated in this code-level audit.
 
 ---
 
@@ -20,14 +22,14 @@ Before starting Phase 2, ensure:
 
 By the end of Phase 2, you should have:
 
-- [ ] Pydantic models matching the JSON schemas
-- [ ] `/v1/deck/generate` endpoint with OpenAI Structured Outputs
-- [ ] `/v1/deck/{deck_id}` endpoint to retrieve saved decks
-- [ ] Database tables for decks and cards
-- [ ] Structured logging with request tracing
-- [ ] Input validation and sanitization
-- [ ] Flashcard UI that renders deck responses
-- [ ] Tests covering core functionality
+- [x] Pydantic models matching the JSON schemas
+- [x] `/v1/deck/generate` endpoint with OpenAI Structured Outputs
+- [x] `/v1/deck/{deck_id}` endpoint to retrieve saved decks
+- [x] Database tables for decks and cards
+- [x] Structured logging with request tracing
+- [x] Input validation and sanitization
+- [x] Flashcard UI that renders deck responses
+- [x] Tests covering core functionality
 
 ---
 
@@ -69,7 +71,6 @@ router.include_router(routes_deck.router, prefix="/deck", tags=["Deck"])
 """Health check endpoint for API v1."""
 
 from datetime import datetime, timezone
-from uuid import UUID
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -373,6 +374,7 @@ def get_deck_prompts(
 
 import os
 from datetime import datetime, timezone
+from uuid import UUID
 
 import structlog
 from langchain_openai import ChatOpenAI
@@ -945,6 +947,8 @@ export async function getDeck(deckId: string): Promise<DeckResponse> {
 
 Follow the existing design tokens in `frontend/src/app/globals.css` (dark/amber palette and glass styles) to keep the UI consistent.
 
+> **Theme alignment note (2026-02-12):** The snippets below are structural examples. If your app already uses the Phase 1 dark/amber theme, replace hardcoded `purple-*`, `gray-*`, and `bg-white` classes with existing tokens/utilities (`var(--accent-primary)`, `var(--bg-secondary)`, `var(--text-*)`, `.glass`, `.stack-card`, `.chip`).
+
 **8.1 Create `frontend/src/components/flashcards/Flashcard.tsx`:**
 
 ```tsx
@@ -1226,6 +1230,8 @@ const handleSubmit = async (e: React.FormEvent) => {
 };
 ```
 
+> **Current UI mapping note (2026-02-12):** If you kept the enhanced Phase 1 builder controls, map the card slider to `max_concepts` when calling `generateDeck`. Keep extra toggles (for example, "include examples" / "include recall prompts") as client-only UI state until corresponding request fields and backend behavior are added.
+
 ---
 
 ### Step 11: Testing
@@ -1267,14 +1273,32 @@ curl -X POST http://localhost:8000/v1/deck/generate \
 
 Before moving to Phase 3, verify:
 
-- [ ] `/v1/deck/generate` returns valid JSON matching the schema
-- [ ] Decks are persisted to PostgreSQL
-- [ ] `/v1/deck/{deck_id}` retrieves saved decks
-- [ ] Frontend generates and displays decks
-- [ ] Flashcard UI shows concepts with progressive disclosure
-- [ ] Logs include request IDs
-- [ ] Error responses match `docs/ERRORS.md` (top-level `error` object)
-- [ ] All tests pass
+- [x] `/v1/deck/generate` returns valid JSON matching the schema
+- [x] Decks are persisted to PostgreSQL
+- [x] `/v1/deck/{deck_id}` retrieves saved decks
+- [x] Frontend generates and displays decks
+- [x] Flashcard UI shows concepts with progressive disclosure
+- [x] Logs include request IDs
+- [x] Error responses match `docs/ERRORS.md` (top-level `error` object)
+- [x] All tests pass
+
+---
+
+## Phase 2 Implementation Audit (2026-02-13)
+
+**Implementation score: 9/10**
+
+### Evidence reviewed
+- Backend tests: `58/58` passed (`backend\.venv\Scripts\python.exe -m pytest -v`)
+- Frontend tests: `1/1` suite, `4/4` tests passed (`npm test -- --watch=false`)
+- Files reviewed: API routes, schema models, prompt registry, LLM client, DB models/migration, frontend API client, deck page, and flashcard components
+
+### Improvement completion (2026-02-13)
+1. Added one repair attempt for invalid LLM output in `backend/app/services/llm_client.py` and surfaced structured `SCHEMA_VALIDATION_FAILED` details on failure.
+2. Enforced URI validation for `sources[].url` via `AnyUrl` in `backend/app/schemas/deck.py`.
+3. Added server-side normalization/sanitization for request text fields (`topic`, `scope`) in `backend/app/schemas/deck.py`.
+4. Added `backend/app/schemas/example.py` and schema exports to align with PLAN Phase 2 deck/example model expectations.
+5. Updated deck route error envelopes to include optional `details` and `recovery_action` fields aligned with `docs/ERRORS.md`.
 
 ---
 

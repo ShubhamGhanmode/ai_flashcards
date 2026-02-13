@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { generateDeck, APIClientError } from "@/lib/api";
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
 
@@ -59,6 +61,8 @@ export default function Home() {
     setError(null);
   };
 
+  const router = useRouter();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -70,23 +74,23 @@ export default function Home() {
 
     setIsLoading(true);
 
-    // TODO: Implement API call in Phase 2
-    console.log("Generating deck for:", {
-      topic,
-      difficulty,
-      cardCount,
-      includeExamples,
-      includeRecall,
-    });
+    try {
+      const deck = await generateDeck({
+        topic: topic.trim(),
+        difficulty_level: difficulty,
+        max_concepts: cardCount,
+      });
 
-    setTimeout(() => {
+      // Navigate to the deck view
+      router.push(`/deck/${deck.deck_id}`);
+    } catch (err) {
+      if (err instanceof APIClientError) {
+        setError(err.error.message);
+      } else {
+        setError("Failed to generate deck. Please try again.");
+      }
       setIsLoading(false);
-      alert(
-        `Deck generation coming in Phase 2!\n\nTopic: ${topic}\nDifficulty: ${difficulty}\nCards: ${cardCount}\nExamples: ${
-          includeExamples ? "On" : "Off"
-        }\nRecall prompts: ${includeRecall ? "On" : "Off"}`
-      );
-    }, 1000);
+    }
   };
 
   return (
@@ -250,9 +254,8 @@ export default function Home() {
                       style={{
                         background: difficulty === level.value ? "var(--accent-primary)" : "var(--bg-secondary)",
                         color: difficulty === level.value ? "var(--bg-primary)" : "var(--text-secondary)",
-                        border: `1px solid ${
-                          difficulty === level.value ? "var(--accent-primary)" : "var(--border-subtle)"
-                        }`,
+                        border: `1px solid ${difficulty === level.value ? "var(--accent-primary)" : "var(--border-subtle)"
+                          }`,
                         fontFamily: "var(--font-body)",
                       }}
                     >

@@ -1,8 +1,6 @@
 # Docker Compose configuration for development with hot reload
 # Run with: docker compose -f docker-compose.dev.yml up
 
-version: "3.8"
-
 services:
   # PostgreSQL Database
   postgres:
