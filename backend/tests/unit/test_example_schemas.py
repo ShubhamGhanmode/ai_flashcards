@@ -27,6 +27,18 @@ class TestExampleGenerateRequest:
         with pytest.raises(ValidationError):
             ExampleGenerateRequest(constraints=[f"c{i}" for i in range(11)])
 
+    def test_invalid_style_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            ExampleGenerateRequest(style="unsupported")  # type: ignore[arg-type]
+
+    def test_invalid_length_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            ExampleGenerateRequest(length="tiny")  # type: ignore[arg-type]
+
+    def test_constraint_item_length_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            ExampleGenerateRequest(constraints=["x" * 201])
+
 
 class TestExampleResponse:
     """Tests for example response validation."""

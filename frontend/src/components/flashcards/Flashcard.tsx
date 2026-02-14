@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Concept } from "@/lib/api";
+import { ExamplePanel } from "./ExamplePanel";
 
 interface FlashcardProps {
   concept: Concept;
@@ -81,6 +82,8 @@ export function Flashcard({ concept, index, total }: FlashcardProps) {
           </p>
         </div>
       )}
+
+      {concept.example_possible && <ExamplePanel cardId={concept.card_id} />}
     </div>
   );
 }

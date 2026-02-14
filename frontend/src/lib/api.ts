@@ -47,6 +47,22 @@ export interface DeckResponse {
   generation_metadata: GenerationMetadata;
 }
 
+export interface ExampleGenerateRequest {
+  style?: "default" | "analogy" | "real_world";
+  length?: "short" | "medium" | "long";
+  constraints?: string[];
+}
+
+export interface ExampleResponse {
+  schema_version: string;
+  card_id: string;
+  example: string;
+  steps?: string[];
+  pitfalls?: string[];
+  source_refs?: string[];
+  generation_metadata: GenerationMetadata;
+}
+
 export interface APIError {
   code: string;
   message: string;
@@ -185,6 +201,31 @@ export async function getDeck(deckId: string): Promise<DeckResponse> {
     headers: {
       "Content-Type": "application/json",
     },
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const requestId = response.headers.get("X-Request-ID");
+    const error = toAPIError(payload, response.status, requestId);
+    throw new APIClientError(
+      error,
+      response.status,
+    );
+  }
+
+  return response.json();
+}
+
+export async function generateCardExample(
+  cardId: string,
+  request: ExampleGenerateRequest = {},
+): Promise<ExampleResponse> {
+  const response = await fetch(`${API_BASE}/v1/card/${cardId}/example`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
   });
 
   if (!response.ok) {

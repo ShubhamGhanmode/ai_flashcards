@@ -1,6 +1,10 @@
 """Tests for prompt registry."""
 
-from app.prompts.registry import PROMPT_VERSIONS, get_deck_prompts
+from app.prompts.registry import (
+    PROMPT_VERSIONS,
+    get_deck_prompts,
+    get_example_prompts,
+)
 
 
 class TestPromptRegistry:
@@ -60,6 +64,8 @@ class TestPromptRegistry:
     def test_prompt_versions_exist(self) -> None:
         assert "deck_system" in PROMPT_VERSIONS
         assert "deck_user" in PROMPT_VERSIONS
+        assert "example_system" in PROMPT_VERSIONS
+        assert "example_user" in PROMPT_VERSIONS
 
     def test_system_prompt_mentions_rules(self) -> None:
         system, _ = get_deck_prompts(
@@ -68,3 +74,29 @@ class TestPromptRegistry:
             max_concepts=5,
         )
         assert "5 bullet" in system.lower() or "bullet point" in system.lower()
+
+    def test_example_prompt_contains_card_context(self) -> None:
+        _, user = get_example_prompts(
+            title="Binary Search Tree",
+            bullets=["Definition", "Insertion", "Search"],
+            example_hint="Walk through insertion order.",
+            style="analogy",
+            length="short",
+            constraints=["Use everyday language"],
+        )
+        assert "Binary Search Tree" in user
+        assert "analogy" in user
+        assert "short" in user
+        assert "Use everyday language" in user
+        assert "Walk through insertion order." in user
+
+    def test_example_prompt_uses_none_constraints_when_missing(self) -> None:
+        _, user = get_example_prompts(
+            title="Topic",
+            bullets=["Point A"],
+            example_hint=None,
+            style="default",
+            length="medium",
+            constraints=None,
+        )
+        assert "- None" in user

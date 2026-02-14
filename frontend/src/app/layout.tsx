@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, JetBrains_Mono, Sora } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -35,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${sora.variable} ${ibmPlexSans.variable} ${jetBrainsMono.variable}`}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

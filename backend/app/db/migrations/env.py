@@ -1,12 +1,12 @@
 """Alembic migration environment configuration."""
 
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.db.models import Base
+from app.db.session import get_database_url
 
 # This is the Alembic Config object
 config = context.config
@@ -16,10 +16,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Get database URL from environment
-database_url = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/flashcards"
-)
+database_url = get_database_url()
 config.set_main_option("sqlalchemy.url", database_url)
 
 # Add your model's MetaData object here for 'autogenerate' support

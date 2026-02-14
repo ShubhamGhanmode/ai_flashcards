@@ -43,7 +43,7 @@ services:
       dockerfile: Dockerfile
     container_name: flashcards-backend
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/flashcards
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/flashcards
       - REDIS_URL=redis://redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
