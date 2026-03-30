@@ -5,6 +5,7 @@ import json
 import os
 from datetime import UTC, datetime
 from functools import lru_cache
+from time import perf_counter
 from typing import Any
 from uuid import UUID
 
@@ -23,10 +24,18 @@ from app.schemas.example import (
     LLMExampleOutput,
     TokenUsage,
 )
+from app.services.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerOpenError,
+    get_circuit_breaker,
+    is_provider_transient_error,
+)
+from app.services.cost_calculator import CostCalculator
+from app.services.llm_usage import combine_usage_counts, usage_from_raw_message
 
 logger = structlog.get_logger()
 
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gpt-5-nano"
 DEFAULT_TIMEOUT = 60
 EXAMPLE_TEMPERATURE = 0.7
 
@@ -62,7 +71,7 @@ class ExampleSchemaValidationFailedError(Exception):
 class ExampleGenerator:
     """Generate or return cached examples for a card."""
 
-    def __init__(self) -> None:
+    def __init__(self, circuit_breaker: CircuitBreaker | None = None) -> None:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable not set")
@@ -79,37 +88,35 @@ class ExampleGenerator:
             include_raw=True,
         )
         self.model = model_name
+        self.circuit_breaker = circuit_breaker or get_circuit_breaker()
 
     @staticmethod
     def _token_usage_from_raw(raw_message: Any) -> TokenUsage:
         """Extract token usage from a raw LangChain response message."""
-        usage = getattr(raw_message, "usage_metadata", None) or {}
+        prompt, completion, total = usage_from_raw_message(raw_message)
         return TokenUsage(
-            prompt=int(usage.get("input_tokens", 0)),
-            completion=int(usage.get("output_tokens", 0)),
-            total=int(usage.get("total_tokens", 0)),
+            prompt=prompt,
+            completion=completion,
+            total=total,
         )
 
     @staticmethod
     def _combine_tokens(first: TokenUsage, second: TokenUsage) -> TokenUsage:
         """Add token usage from two calls."""
+        prompt, completion, total = combine_usage_counts(
+            first.prompt,
+            first.completion,
+            first.total,
+            second.prompt,
+            second.completion,
+            second.total,
+        )
         return TokenUsage(
-            prompt=first.prompt + second.prompt,
-            completion=first.completion + second.completion,
-            total=first.total + second.total,
+            prompt=prompt,
+            completion=completion,
+            total=total,
         )
 
-    @staticmethod
-    def _as_text(value: Any, max_chars: int = 1600) -> str:
-        """Convert unknown payload values to safely truncated text."""
-        if value is None:
-            return ""
-        if isinstance(value, str):
-            return value[:max_chars]
-        try:
-            return json.dumps(value, ensure_ascii=True)[:max_chars]
-        except TypeError:
-            return str(value)[:max_chars]
 
     @staticmethod
     def compute_request_fingerprint(request: ExampleGenerateRequest) -> str:
@@ -174,7 +181,17 @@ class ExampleGenerator:
         messages: list[tuple[str, str]],
     ) -> tuple[LLMExampleOutput | None, Any, Exception | None]:
         """Invoke structured output chain."""
-        result = await self.structured_llm.ainvoke(messages)
+        if not self.circuit_breaker.allow_request():
+            raise CircuitBreakerOpenError(self.circuit_breaker.retry_after_seconds())
+
+        try:
+            result = await self.structured_llm.ainvoke(messages)
+        except Exception as exc:
+            if is_provider_transient_error(exc):
+                self.circuit_breaker.record_failure()
+            raise
+
+        self.circuit_breaker.record_success()
         parsed = result.get("parsed")
         raw = result.get("raw")
         parsing_error = result.get("parsing_error")
@@ -251,6 +268,7 @@ class ExampleGenerator:
             constraints=request.constraints,
         )
         start_time = datetime.now(UTC)
+        start_perf = perf_counter()
 
         logger.info(
             "example_generation_started",
@@ -322,6 +340,13 @@ class ExampleGenerator:
                     rag_used=False,
                 ),
             )
+            generation_time_ms = int((perf_counter() - start_perf) * 1000)
+            cost_usd = CostCalculator.estimate_cost_usd(
+                self.model,
+                actual_tokens.prompt,
+                actual_tokens.completion,
+            )
+            api_cost_cents = CostCalculator.cost_to_cents(cost_usd)
 
             db.add(
                 CardExample(
@@ -331,6 +356,10 @@ class ExampleGenerator:
                     length=request.length,
                     constraints=request.constraints,
                     payload=response.model_dump(mode="json"),
+                    tokens_used=actual_tokens.total,
+                    api_cost_cents=api_cost_cents,
+                    api_cost_usd=cost_usd,
+                    generation_time_ms=generation_time_ms,
                 )
             )
             try:
@@ -383,6 +412,8 @@ class ExampleGenerator:
                 details=details,
             ) from exc
         except ExampleSchemaValidationFailedError:
+            raise
+        except CircuitBreakerOpenError:
             raise
         except Exception as exc:
             logger.error(

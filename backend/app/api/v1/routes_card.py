@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.middleware.request_id import request_id_var
 from app.schemas.example import ExampleGenerateRequest, ExampleResponse
+from app.services.circuit_breaker import CircuitBreakerOpenError
 from app.services.example_generator import (
     CardNotFoundError,
     ExampleNotAllowedError,
@@ -118,6 +119,15 @@ async def generate_card_example(
             status_code=status.HTTP_502_BAD_GATEWAY,
             details=exc.details or None,
             recovery_action="Retry with shorter constraints or style=default.",
+        )
+    except CircuitBreakerOpenError as exc:
+        return error_response(
+            code="CIRCUIT_BREAKER_OPEN",
+            message="The generation service is recovering. Please retry shortly.",
+            retryable=True,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            details={"retry_after_seconds": exc.retry_after_seconds},
+            recovery_action="Retry after the suggested cooldown window.",
         )
     except (httpx.TimeoutException, TimeoutError) as exc:
         logger.warning(

@@ -6,6 +6,7 @@ from uuid import uuid4
 from sqlalchemy import (
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -32,6 +33,8 @@ class Deck(Base):
     scope = Column(String(200), nullable=True)
     payload = Column(JSONB, nullable=False)  # Full response JSON
     tokens_used = Column(Integer, nullable=True)
+    api_cost_cents = Column(Integer, nullable=True)
+    api_cost_usd = Column(Float, nullable=True)
     generation_time_ms = Column(Integer, nullable=True)
     created_at = Column(
         DateTime(timezone=True),
@@ -94,6 +97,10 @@ class CardExample(Base):
     length = Column(String(32), nullable=False)
     constraints = Column(JSONB, nullable=True)
     payload = Column(JSONB, nullable=False)
+    tokens_used = Column(Integer, nullable=True)
+    api_cost_cents = Column(Integer, nullable=True)
+    api_cost_usd = Column(Float, nullable=True)
+    generation_time_ms = Column(Integer, nullable=True)
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,

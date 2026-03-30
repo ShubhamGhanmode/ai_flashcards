@@ -1,6 +1,6 @@
 """LangChain LLM client with structured output support."""
 
-import json
+
 import os
 from datetime import UTC, datetime
 from typing import Any
@@ -19,11 +19,18 @@ from app.schemas.deck import (
     LLMDeckOutput,
     TokenUsage,
 )
+from app.services.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerOpenError,
+    get_circuit_breaker,
+    is_provider_transient_error,
+)
+from app.services.llm_usage import as_text, combine_usage_counts, usage_from_raw_message
 
 logger = structlog.get_logger()
 
 # Configuration
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gpt-5-nano"
 DEFAULT_TEMPERATURE = 0.3
 DEFAULT_TIMEOUT = 60
 
@@ -43,7 +50,7 @@ class SchemaValidationFailedError(Exception):
 class LLMClient:
     """Client for LLM with LangChain structured outputs."""
 
-    def __init__(self) -> None:
+    def __init__(self, circuit_breaker: CircuitBreaker | None = None) -> None:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable not set")
@@ -64,45 +71,52 @@ class LLMClient:
             LLMDeckOutput, include_raw=True
         )
         self.model = model_name
+        self.circuit_breaker = circuit_breaker or get_circuit_breaker()
 
     @staticmethod
     def _token_usage_from_raw(raw_message: Any) -> TokenUsage:
         """Extract token usage from the raw LangChain response message."""
-        usage = getattr(raw_message, "usage_metadata", None) or {}
+        prompt, completion, total = usage_from_raw_message(raw_message)
         return TokenUsage(
-            prompt=int(usage.get("input_tokens", 0)),
-            completion=int(usage.get("output_tokens", 0)),
-            total=int(usage.get("total_tokens", 0)),
+            prompt=prompt,
+            completion=completion,
+            total=total,
         )
 
     @staticmethod
     def _combine_tokens(first: TokenUsage, second: TokenUsage) -> TokenUsage:
         """Add token counts from two calls."""
+        prompt, completion, total = combine_usage_counts(
+            first.prompt,
+            first.completion,
+            first.total,
+            second.prompt,
+            second.completion,
+            second.total,
+        )
         return TokenUsage(
-            prompt=first.prompt + second.prompt,
-            completion=first.completion + second.completion,
-            total=first.total + second.total,
+            prompt=prompt,
+            completion=completion,
+            total=total,
         )
 
-    @staticmethod
-    def _as_text(value: Any, max_chars: int = 1600) -> str:
-        """Convert unknown payloads to truncated text for logging/details."""
-        if value is None:
-            return ""
-        if isinstance(value, str):
-            text = value
-        else:
-            try:
-                text = json.dumps(value, ensure_ascii=True)
-            except TypeError:
-                text = str(value)
-        return text[:max_chars]
+
 
     async def _invoke_structured(
         self, messages: list[tuple[str, str]]
     ) -> tuple[LLMDeckOutput | None, Any, Exception | None]:
         """Invoke structured output and return parsed payload with raw response."""
-        result = await self.structured_llm.ainvoke(messages)
+        if not self.circuit_breaker.allow_request():
+            raise CircuitBreakerOpenError(self.circuit_breaker.retry_after_seconds())
+
+        try:
+            result = await self.structured_llm.ainvoke(messages)
+        except Exception as exc:
+            if is_provider_transient_error(exc):
+                self.circuit_breaker.record_failure()
+            raise
+
+        self.circuit_breaker.record_success()
         parsed = result.get("parsed")
         raw = result.get("raw")
         parsing_error = result.get("parsing_error")
@@ -172,14 +186,14 @@ class LLMClient:
             if llm_output is None or parsing_error is not None:
                 logger.warning(
                     "llm_output_needs_repair",
-                    parsing_error=self._as_text(parsing_error),
+                    parsing_error=as_text(parsing_error),
                     has_raw_response=raw_message is not None,
                 )
                 repaired_output, repaired_raw, repair_error = await self._repair_once(
                     base_system_prompt=system_prompt,
                     base_user_prompt=user_prompt,
-                    raw_output=self._as_text(getattr(raw_message, "content", raw_message)),
-                    parsing_error=self._as_text(parsing_error),
+                    raw_output=as_text(getattr(raw_message, "content", raw_message)),
+                    parsing_error=as_text(parsing_error),
                 )
                 repair_tokens = self._token_usage_from_raw(repaired_raw)
                 actual_tokens = self._combine_tokens(actual_tokens, repair_tokens)
@@ -193,8 +207,8 @@ class LLMClient:
                                 "type": "schema_validation_failed",
                             }
                         ],
-                        "parsing_error": self._as_text(parsing_error),
-                        "repair_error": self._as_text(repair_error),
+                        "parsing_error": as_text(parsing_error),
+                        "repair_error": as_text(repair_error),
                     }
                     logger.error(
                         "llm_output_validation_failed_after_repair",
@@ -262,6 +276,8 @@ class LLMClient:
                 "Deck output failed schema validation.",
                 details=details,
             ) from e
+        except CircuitBreakerOpenError:
+            raise
         except SchemaValidationFailedError:
             raise
         except Exception as e:
@@ -279,3 +295,9 @@ def get_llm_client() -> LLMClient:
     if _llm_client is None:
         _llm_client = LLMClient()
     return _llm_client
+
+
+def reset_llm_client() -> None:
+    """Reset the cached LLM client singleton."""
+    global _llm_client
+    _llm_client = None

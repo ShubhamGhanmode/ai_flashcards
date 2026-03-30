@@ -42,7 +42,7 @@ def _cached_response(card_id: UUID) -> ExampleResponse:
         card_id=card_id,
         example="Cached example",
         generation_metadata=GenerationMetadata(
-            model="gpt-4o-mini",
+            model="gpt-5-nano",
             prompt_version="v1",
             tokens=TokenUsage(prompt=1, completion=2, total=3),
             timestamp="2026-01-01T00:00:00Z",

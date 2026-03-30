@@ -1,5 +1,6 @@
 """Tests for deck generation routes."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -14,6 +15,7 @@ from app.schemas.deck import (
     GenerationMetadata,
     TokenUsage,
 )
+from app.services.circuit_breaker import CircuitBreakerOpenError
 from app.services.llm_client import SchemaValidationFailedError
 
 
@@ -36,7 +38,7 @@ def _make_deck_response(deck_id=None, n_concepts=5) -> DeckResponse:
         difficulty_level="beginner",
         concepts=concepts,
         generation_metadata=GenerationMetadata(
-            model="gpt-4o-mini",
+            model="gpt-5-nano",
             prompt_version="v1",
             tokens=TokenUsage(prompt=100, completion=200, total=300),
             timestamp="2026-01-01T00:00:00Z",
@@ -195,6 +197,32 @@ class TestGenerateDeck:
         )
 
     @patch("app.api.v1.routes_deck.get_llm_client")
+    def test_generate_deck_circuit_breaker_open_returns_503(
+        self,
+        mock_get_llm: MagicMock,
+        client: TestClient,
+    ) -> None:
+        mock_llm = MagicMock()
+        mock_llm.generate_deck = AsyncMock(
+            side_effect=CircuitBreakerOpenError(retry_after_seconds=12)
+        )
+        mock_get_llm.return_value = mock_llm
+
+        response = client.post(
+            "/v1/deck/generate",
+            json={
+                "topic": "Binary Search Trees",
+                "difficulty_level": "beginner",
+            },
+        )
+
+        assert response.status_code == 503
+        data = response.json()
+        assert data["error"]["code"] == "CIRCUIT_BREAKER_OPEN"
+        assert data["error"]["retryable"] is True
+        assert data["error"]["details"]["retry_after_seconds"] == 12
+
+    @patch("app.api.v1.routes_deck.get_llm_client")
     def test_generate_deck_sanitizes_topic_and_scope_before_llm_call(
         self,
         mock_get_llm: MagicMock,
@@ -240,6 +268,67 @@ class TestGenerateDeck:
             json={"topic": "", "difficulty_level": "beginner"},
         )
         assert "X-Request-ID" in response.headers
+
+    @patch("app.api.v1.routes_deck.get_llm_client")
+    def test_stream_generate_deck_success(
+        self,
+        mock_get_llm: MagicMock,
+        client: TestClient,
+    ) -> None:
+        mock_response = _make_deck_response()
+        mock_llm = MagicMock()
+        mock_llm.generate_deck = AsyncMock(return_value=mock_response)
+        mock_get_llm.return_value = mock_llm
+
+        response = client.post(
+            "/v1/deck/generate/stream",
+            json={
+                "topic": "Binary Search Trees",
+                "difficulty_level": "beginner",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+        assert "event: status" in response.text
+        assert "event: complete" in response.text
+        complete_payload = json.loads(
+            response.text.split("event: complete\ndata: ", maxsplit=1)[1].split(
+                "\n\n", maxsplit=1
+            )[0]
+        )
+        assert complete_payload["deck"]["topic"] == "Binary Search Trees"
+        assert len(complete_payload["deck"]["concepts"]) == 5
+
+    @patch("app.api.v1.routes_deck.get_llm_client")
+    def test_stream_generate_deck_emits_error_event(
+        self,
+        mock_get_llm: MagicMock,
+        client: TestClient,
+    ) -> None:
+        mock_llm = MagicMock()
+        mock_llm.generate_deck = AsyncMock(
+            side_effect=RuntimeError("LLM unavailable")
+        )
+        mock_get_llm.return_value = mock_llm
+
+        response = client.post(
+            "/v1/deck/generate/stream",
+            json={
+                "topic": "Binary Search Trees",
+                "difficulty_level": "beginner",
+            },
+        )
+
+        assert response.status_code == 200
+        assert "event: error" in response.text
+        error_payload = json.loads(
+            response.text.split("event: error\ndata: ", maxsplit=1)[1].split(
+                "\n\n", maxsplit=1
+            )[0]
+        )
+        assert error_payload["status_code"] == 502
+        assert error_payload["error"]["code"] == "LLM_PROVIDER_ERROR"
 
 
 class TestGetDeck:

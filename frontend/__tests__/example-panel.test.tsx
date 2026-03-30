@@ -43,7 +43,7 @@ function buildExampleResponse(cardId: string): ExampleResponse {
     steps: ["Start at the root shelf", "Go left for smaller, right for larger"],
     pitfalls: ["Unbalanced trees can degrade lookup speed."],
     generation_metadata: {
-      model: "gpt-4o-mini",
+      model: "gpt-5-nano",
       prompt_version: "v1",
       tokens: {
         prompt: 10,
@@ -96,6 +96,7 @@ describe("ExamplePanel", () => {
       queryClient,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /reveal notes/i }));
     expect(
       screen.getByRole("button", { name: /show example/i }),
     ).toBeInTheDocument();

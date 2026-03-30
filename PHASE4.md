@@ -14,7 +14,8 @@ By the end of this phase:
 
 ## Status
 
-Not started.
+Completed on **2026-02-15**.
+Implementation verification: backend tests **99/99** and frontend tests **15/15**.
 
 Guide revision audited and aligned to repository state on **2026-02-14**.
 
@@ -61,8 +62,8 @@ docker compose -f docker-compose.dev.yml exec redis redis-cli ping
 
 Expected baseline:
 
-- backend tests pass (`79/79`)
-- frontend tests pass (`9/9`)
+- backend tests pass (`99/99`)
+- frontend tests pass (`15/15`)
 
 If this baseline regresses, remediate Phase 3 behavior before Phase 4 work.
 
@@ -82,18 +83,18 @@ To avoid ambiguity, follow these decisions:
 
 ## Deliverables Checklist
 
-- [ ] `backend/app/services/token_estimator.py`
-- [ ] `backend/app/services/cost_calculator.py`
-- [ ] `DeckEstimateRequest` / `DeckEstimateResponse` models in `backend/app/schemas/deck.py`
-- [ ] `POST /v1/deck/estimate` in `backend/app/api/v1/routes_deck.py`
-- [ ] Deck DB migration adding `api_cost_cents` to `decks`
-- [ ] Example DB migration adding telemetry columns to `card_examples`
-- [ ] Actual deck/example telemetry persistence (tokens, cost, latency)
-- [ ] Redis-backed rate limit + quota middleware in `backend/app/middleware/rate_limit.py`
-- [ ] OpenAI circuit breaker in `backend/app/services/circuit_breaker.py`
-- [ ] Frontend estimate preview and new error handling states
-- [ ] Backend and frontend tests for all new controls
-- [ ] Docs sync (`PHASE4.md`, `AGENTS.md`, and `README.md` only if behavior visible to users changed)
+- [x] `backend/app/services/token_estimator.py`
+- [x] `backend/app/services/cost_calculator.py`
+- [x] `DeckEstimateRequest` / `DeckEstimateResponse` models in `backend/app/schemas/deck.py`
+- [x] `POST /v1/deck/estimate` in `backend/app/api/v1/routes_deck.py`
+- [x] Deck DB migration adding `api_cost_cents` to `decks`
+- [x] Example DB migration adding telemetry columns to `card_examples`
+- [x] Actual deck/example telemetry persistence (tokens, cost, latency)
+- [x] Redis-backed rate limit + quota middleware in `backend/app/middleware/rate_limit.py`
+- [x] OpenAI circuit breaker in `backend/app/services/circuit_breaker.py`
+- [x] Frontend estimate preview and new error handling states
+- [x] Backend and frontend tests for all new controls
+- [x] Docs sync (`PHASE4.md`, `AGENTS.md`, and `README.md` only if behavior visible to users changed)
 
 ---
 
@@ -111,7 +112,7 @@ Add/update in `.env.example`:
 
 ```env
 # Phase 4 - token/cost estimation
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-5-nano
 
 # Phase 4 - rate limits and quotas
 REDIS_URL=redis://localhost:6379/1
@@ -576,14 +577,14 @@ Mitigation: acceptable for Phase 4; plan Redis-backed breaker for multi-instance
 
 Before starting Phase 5, verify all are true:
 
-- [ ] `POST /v1/deck/estimate` returns valid estimate payload and does not call OpenAI
-- [ ] deck generation persists `tokens_used`, `api_cost_cents`, and `generation_time_ms`
-- [ ] example generation persists telemetry for newly generated examples
-- [ ] rate limiting returns `429 RATE_LIMITED` + `Retry-After` when exceeded
-- [ ] daily deck quota returns `429 QUOTA_EXCEEDED` when exceeded
-- [ ] circuit breaker opens under repeated provider failures and returns `503 CIRCUIT_BREAKER_OPEN`
-- [ ] frontend shows estimate preview and handles Phase 4 error codes clearly
-- [ ] backend and frontend tests are green
+- [x] `POST /v1/deck/estimate` returns valid estimate payload and does not call OpenAI
+- [x] deck generation persists `tokens_used`, `api_cost_cents`, and `generation_time_ms`
+- [x] example generation persists telemetry for newly generated examples
+- [x] rate limiting returns `429 RATE_LIMITED` + `Retry-After` when exceeded
+- [x] daily deck quota returns `429 QUOTA_EXCEEDED` when exceeded
+- [x] circuit breaker opens under repeated provider failures and returns `503 CIRCUIT_BREAKER_OPEN`
+- [x] frontend shows estimate preview and handles Phase 4 error codes clearly
+- [x] backend and frontend tests are green
 
 ---
 

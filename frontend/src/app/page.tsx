@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { generateDeck, APIClientError } from "@/lib/api";
+import {
+  APIClientError,
+  type DeckGenerationStatusEvent,
+  streamDeckGeneration,
+} from "@/lib/api";
+import { cacheDeck } from "@/lib/deck-session";
+import { EstimatePreview } from "@/components/flashcards/EstimatePreview";
+import { GenerationStudio } from "@/components/flashcards/GenerationStudio";
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced";
 
@@ -23,16 +30,16 @@ const TOPIC_SUGGESTIONS = [
 
 const WHY_IT_WORKS = [
   {
+    title: "Live momentum",
+    desc: "The builder streams real status updates instead of freezing on a spinner.",
+  },
+  {
     title: "Atomic focus",
-    desc: "One concept per card, distilled into 5 key points.",
+    desc: "Each card is shaped around one concept with five concrete takeaways.",
   },
   {
-    title: "Active recall",
-    desc: "Prompts push retrieval instead of passive reading.",
-  },
-  {
-    title: "Context on demand",
-    desc: "Examples show up only when you ask for them.",
+    title: "Examples on demand",
+    desc: "Example generation stays optional so the first pass stays fast.",
   },
 ];
 
@@ -40,28 +47,42 @@ export default function Home() {
   const [topic, setTopic] = useState("");
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("beginner");
   const [cardCount, setCardCount] = useState(5);
-  const [includeExamples, setIncludeExamples] = useState(true);
-  const [includeRecall, setIncludeRecall] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [generationEvent, setGenerationEvent] = useState<DeckGenerationStatusEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const difficultyMeta = DIFFICULTY_OPTIONS.find((level) => level.value === difficulty);
   const topicDisplay = topic.trim() || "Your topic";
-
   const previewPoints = [
     "Definition and core idea",
     "Key terms and relations",
     "Common pitfall to avoid",
-    includeExamples ? "Example prompt" : "Application prompt",
-    includeRecall ? "Recall question" : "Quick check",
+    "Concrete example prompt",
+    "Quick recall check",
   ];
+
+  const router = useRouter();
 
   const handleSuggestion = (value: string) => {
     setTopic(value);
     setError(null);
   };
 
-  const router = useRouter();
+  const getDeckErrorMessage = (apiError: APIClientError): string => {
+    switch (apiError.error.code) {
+      case "RATE_LIMITED":
+        if (typeof apiError.error.retry_after_seconds === "number") {
+          return `Too many requests. Try again in ${apiError.error.retry_after_seconds} seconds.`;
+        }
+        return "Too many requests. Please wait a moment and try again.";
+      case "QUOTA_EXCEEDED":
+        return "Daily deck limit reached. Try again tomorrow.";
+      case "CIRCUIT_BREAKER_OPEN":
+        return "Generation service is recovering. Please retry shortly.";
+      default:
+        return apiError.error.message;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,29 +94,41 @@ export default function Home() {
     }
 
     setIsLoading(true);
+    setGenerationEvent(null);
 
     try {
-      const deck = await generateDeck({
-        topic: topic.trim(),
-        difficulty_level: difficulty,
-        max_concepts: cardCount,
-      });
+      const deck = await streamDeckGeneration(
+        {
+          topic: topic.trim(),
+          difficulty_level: difficulty,
+          max_concepts: cardCount,
+        },
+        {
+          onEvent: (event) => {
+            if (event.type === "status" || event.type === "heartbeat") {
+              setGenerationEvent(event);
+            }
+          },
+        },
+      );
 
-      // Navigate to the deck view
-      router.push(`/deck/${deck.deck_id}`);
+      cacheDeck(deck);
+      startTransition(() => {
+        router.push(`/deck/${deck.deck_id}`);
+      });
     } catch (err) {
       if (err instanceof APIClientError) {
-        setError(err.error.message);
+        setError(getDeckErrorMessage(err));
       } else {
         setError("Failed to generate deck. Please try again.");
       }
+      setGenerationEvent(null);
       setIsLoading(false);
     }
   };
 
   return (
     <main className="min-h-screen relative overflow-hidden" style={{ background: "var(--bg-primary)" }}>
-      {/* Ambient Background Gradients */}
       <div
         className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full opacity-20 blur-3xl pointer-events-none"
         style={{
@@ -110,7 +143,6 @@ export default function Home() {
       />
 
       <div className="relative z-10 container mx-auto px-6 py-16 lg:py-24">
-        {/* Header with Typography Focus */}
         <header className="max-w-4xl mb-16 animate-slide-up">
           <div
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8 text-xs font-medium tracking-wide uppercase"
@@ -147,20 +179,18 @@ export default function Home() {
           </h1>
 
           <p className="text-lg lg:text-xl max-w-2xl leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            Generate structured, AI-curated flashcard decks in seconds. Each card distills one concept into 5 key
-            points.
+            Generate structured, AI-curated flashcard decks in seconds, then move through them like a real card stack
+            instead of a static content swap.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <span className="chip">No sign-up</span>
             <span className="chip">3-7 cards</span>
-            <span className="chip">Examples on demand</span>
+            <span className="chip">Live generation stream</span>
           </div>
         </header>
 
-        {/* Main Form Section */}
         <div className="grid lg:grid-cols-[minmax(0,1fr)_420px] gap-16 items-start">
-          {/* Form */}
           <section className="glass-accent rounded-2xl p-8 lg:p-10 animate-slide-up animate-delay-100">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -185,7 +215,6 @@ export default function Home() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Topic Input */}
               <div className="space-y-3">
                 <label
                   htmlFor="topic"
@@ -231,7 +260,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Difficulty Pills */}
               <div>
                 <label
                   className="block text-sm font-medium mb-4 uppercase tracking-wider"
@@ -254,8 +282,7 @@ export default function Home() {
                       style={{
                         background: difficulty === level.value ? "var(--accent-primary)" : "var(--bg-secondary)",
                         color: difficulty === level.value ? "var(--bg-primary)" : "var(--text-secondary)",
-                        border: `1px solid ${difficulty === level.value ? "var(--accent-primary)" : "var(--border-subtle)"
-                          }`,
+                        border: `1px solid ${difficulty === level.value ? "var(--accent-primary)" : "var(--border-subtle)"}`,
                         fontFamily: "var(--font-body)",
                       }}
                     >
@@ -269,89 +296,42 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Deck Settings */}
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor="card-count"
-                      className="text-sm font-medium uppercase tracking-wider"
-                      style={{
-                        color: "var(--text-secondary)",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: "11px",
-                      }}
-                    >
-                      Cards per deck
-                    </label>
-                    <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                      {cardCount} cards
-                    </span>
-                  </div>
-                  <input
-                    id="card-count"
-                    type="range"
-                    min={3}
-                    max={7}
-                    step={1}
-                    value={cardCount}
-                    onChange={(e) => setCardCount(Number(e.target.value))}
-                    className="range"
-                    aria-label="Cards per deck"
-                  />
-                  <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-muted)" }}>
-                    <span>3</span>
-                    <span>7</span>
-                  </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="card-count"
+                    className="text-sm font-medium uppercase tracking-wider"
+                    style={{
+                      color: "var(--text-secondary)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "11px",
+                    }}
+                  >
+                    Cards per deck
+                  </label>
+                  <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                    {cardCount} cards
+                  </span>
                 </div>
-
-                <div className="space-y-3">
-                  <div
-                    className="flex items-center justify-between rounded-lg px-4 py-3"
-                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)" }}
-                  >
-                    <div>
-                      <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-                        Include examples
-                      </p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        Adds a concrete prompt when needed.
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={includeExamples}
-                      onChange={(e) => setIncludeExamples(e.target.checked)}
-                      className="h-4 w-4"
-                      style={{ accentColor: "var(--accent-primary)" }}
-                      aria-label="Include examples"
-                    />
-                  </div>
-                  <div
-                    className="flex items-center justify-between rounded-lg px-4 py-3"
-                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)" }}
-                  >
-                    <div>
-                      <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-                        Include recall prompts
-                      </p>
-                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        Ends each card with a quick check.
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={includeRecall}
-                      onChange={(e) => setIncludeRecall(e.target.checked)}
-                      className="h-4 w-4"
-                      style={{ accentColor: "var(--accent-primary)" }}
-                      aria-label="Include recall prompts"
-                    />
-                  </div>
+                <input
+                  id="card-count"
+                  type="range"
+                  min={3}
+                  max={7}
+                  step={1}
+                  value={cardCount}
+                  onChange={(e) => setCardCount(Number(e.target.value))}
+                  className="range"
+                  aria-label="Cards per deck"
+                />
+                <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+                  <span>3</span>
+                  <span>7</span>
                 </div>
               </div>
 
-              {/* Error Message */}
+              <EstimatePreview topic={topic} difficultyLevel={difficulty} maxConcepts={cardCount} />
+
               {error && (
                 <div
                   className="p-4 rounded-lg text-sm"
@@ -366,7 +346,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={isLoading}
@@ -388,7 +367,7 @@ export default function Home() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                       />
                     </svg>
-                    Generating...
+                    Opening live build...
                   </>
                 ) : (
                   <>
@@ -399,13 +378,11 @@ export default function Home() {
               </button>
             </form>
 
-            {/* Subtle Meta Info */}
             <p className="text-center mt-6 text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-              {cardCount} cards - {difficultyMeta?.label ?? "Beginner"} - Examples {includeExamples ? "on" : "off"}
+              {cardCount} cards - {difficultyMeta?.label ?? "Beginner"} difficulty
             </p>
           </section>
 
-          {/* Preview Panels */}
           <aside className="space-y-6 animate-slide-up animate-delay-200 lg:sticky lg:top-10">
             <div className="glass p-6 rounded-2xl">
               <div className="flex items-center justify-between">
@@ -463,7 +440,7 @@ export default function Home() {
                     {topicDisplay}
                   </h4>
                   <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
-                    Tap to flip for key points.
+                    Flip the top card to reveal key points, then send it to the back of the pack.
                   </p>
                 </div>
               </div>
@@ -494,12 +471,8 @@ export default function Home() {
                   <span style={{ color: "var(--text-primary)" }}>{difficultyMeta?.label ?? "Beginner"}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span style={{ color: "var(--text-muted)" }}>Examples</span>
-                  <span style={{ color: "var(--text-primary)" }}>{includeExamples ? "On" : "Off"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span style={{ color: "var(--text-muted)" }}>Recall prompts</span>
-                  <span style={{ color: "var(--text-primary)" }}>{includeRecall ? "On" : "Off"}</span>
+                  <span style={{ color: "var(--text-muted)" }}>Generation</span>
+                  <span style={{ color: "var(--text-primary)" }}>Streamed</span>
                 </div>
               </div>
             </div>
@@ -530,7 +503,6 @@ export default function Home() {
           </aside>
         </div>
 
-        {/* Footer */}
         <footer
           className="mt-24 pt-8 border-t text-sm flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
           style={{
@@ -542,6 +514,15 @@ export default function Home() {
           <span>No account required. Decks generated in seconds.</span>
         </footer>
       </div>
+
+      {isLoading && (
+        <GenerationStudio
+          topic={topic.trim()}
+          difficultyLabel={difficultyMeta?.label ?? "Beginner"}
+          cardCount={cardCount}
+          event={generationEvent}
+        />
+      )}
     </main>
   );
 }

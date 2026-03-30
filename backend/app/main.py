@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes_health import router as health_router
 from app.api.v1 import router as v1_router
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_id import RequestIDMiddleware, request_id_var
 
 # Configure structured logging
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     )
 
     # Add custom middleware
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(RequestIDMiddleware)
 
     # Include routers

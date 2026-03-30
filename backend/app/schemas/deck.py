@@ -66,6 +66,10 @@ class DeckGenerateRequest(SchemaBase):
         return " ".join(value.split())
 
 
+class DeckEstimateRequest(DeckGenerateRequest):
+    """Request model for deck token/cost estimates."""
+
+
 # =============================================================================
 # Response Models
 # =============================================================================
@@ -96,6 +100,17 @@ class GenerationMetadata(SchemaBase):
     timestamp: datetime
     rag_used: bool = False
     retrieval_metrics: RetrievalMetrics | None = None
+
+
+class DeckEstimateResponse(SchemaBase):
+    """Response model for deck estimate endpoint."""
+
+    schema_version: Literal["1.0"] = "1.0"
+    model: str
+    estimated_tokens: TokenUsage
+    estimated_cost_usd: float = Field(..., ge=0)
+    estimated_cost_cents: int = Field(..., ge=0)
+    estimated_seconds: float = Field(..., ge=0)
 
 
 class Source(SchemaBase):

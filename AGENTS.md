@@ -3,9 +3,9 @@ This is a guide for agentic ai tasks. Improve the instructions in this file so a
 
 ## Overview
 
-Flashcard Learning Assistant: An AI-powered flashcard deck generator with optional RAG (Retrieval-Augmented Generation), schema-first JSON outputs, and a swipeable flashcard UI. Built with FastAPI + Next.js.
+Flashcard Learning Assistant: An AI-powered flashcard deck generator with optional RAG (Retrieval-Augmented Generation), schema-first JSON outputs, a streamed generation experience, and an animated card-stack UI. Built with FastAPI + Next.js.
 
-**Current Phase**: Phase 1 Complete ✅ (audited 2026-01-24) | Phase 2 Complete ✅ | Phase 3 Complete ✅ (audited 2026-02-13) | Phase 4 Ready
+**Current Phase**: Phase 1 Complete ✅ (audited 2026-01-24) | Phase 2 Complete ✅ | Phase 3 Complete ✅ (audited 2026-02-13) | Phase 4 Complete ✅ (audited 2026-02-15) | Phase 5 Ready | Phase 6 Planned
 
 ---
 
@@ -15,12 +15,12 @@ Flashcard Learning Assistant: An AI-powered flashcard deck generator with option
 ai_flashcards/
 ├── backend/                 # FastAPI application
 │   ├── app/
-│   │   ├── api/             # API routes (health, deck, card example)
+│   │   ├── api/             # API routes (health, deck generate/estimate, card example)
 │   │   ├── db/              # Database models & Alembic migrations
-│   │   ├── middleware/      # Request ID middleware
+│   │   ├── middleware/      # Request ID + rate limit/quota middleware
 │   │   ├── prompts/         # LLM prompt templates
 │   │   ├── schemas/         # Pydantic models
-│   │   ├── services/        # Business logic (llm_client, example_generator)
+│   │   ├── services/        # Business logic (llm_client, example_generator, token/cost estimator, circuit breaker)
 │   │   └── main.py          # FastAPI app entry point
 │   ├── tests/               # pytest tests
 │   ├── alembic.ini          # Migration config
@@ -28,7 +28,8 @@ ai_flashcards/
 │   └── pyproject.toml
 ├── frontend/                # Next.js application
 │   ├── src/app/             # App Router pages + providers.tsx
-│   ├── src/components/flashcards/ # DeckSwiper, Flashcard, ExamplePanel
+│   ├── src/components/flashcards/ # DeckSwiper, Flashcard, ExamplePanel, GenerationStudio
+│   ├── src/lib/             # API client and small client-side helpers (for example deck session cache)
 │   ├── __tests__/           # Jest tests
 │   ├── Dockerfile
 │   └── next.config.ts
@@ -55,6 +56,8 @@ ai_flashcards/
 | `PHASE2.md` | Schema-first deck generation API |
 | `PHASE3.md` | Example generation (gated), caching, and UI integration guide |
 | `PHASE4.md` | Token estimation, cost tracking, rate limiting, and circuit breaker |
+| `PHASE5.md` | PDF upload, ingestion worker, Chroma retrieval, and RAG deck generation guide |
+| `PHASE6.md` | Retrieval metrics, RAG transparency UX, and optional debug-surface guide |
 | `docs/schemas/*.json` | JSON Schema definitions for API responses |
 
 ---
@@ -110,6 +113,30 @@ pip install pre-commit && pre-commit install
 3. **Documentation Sync**: Update `PLAN.md` when scope/phases/interfaces change.
 4. **Schema Sync**: Keep `docs/schemas/` in sync with API changes
 5. **Structured Logging**: Use structlog with request_id context
+6. **Generation UX Honesty**: When long-running LLM calls block on strict JSON output, prefer streamed lifecycle/heartbeat updates or immediate UI state transitions over inert spinners. Do not fake partial card content unless the server is actually emitting validated partial data.
+
+---
+
+## KISS Guardrails
+
+1. **Build for the current requirement, not the next phase**: Do not add speculative abstractions, extension points, provider switches, feature flags, or data models for work that is not part of the current task or current phase.
+2. **Prefer the smallest shape that works**: Start with one route, one service, one schema, and one component when possible. Extract helpers only after the same logic exists in at least two real call sites or the duplication is already causing bugs.
+3. **No fake knobs**: Every UI control, API option, env var, telemetry field, and config toggle must change real behavior now. If it is not wired through end-to-end, remove it instead of leaving placeholder surface area.
+4. **Keep request flows linear**: Prefer direct request -> validate -> service -> persist -> respond pipelines. Add middleware, background jobs, caching layers, or circuit-breaker/rate-limit logic only when there is a concrete operational problem to solve.
+5. **Prefer composition over framework-heavy abstraction**: Small pure functions and explicit code paths are preferred over generic base classes, registries, factories, or multi-layer indirection.
+6. **Avoid duplicate representations unless justified**: Do not store or maintain the same business data in multiple places unless there is a clear read/query/performance need and the duplication cost is documented.
+7. **Frontend should default to simpler data flows**: Prefer server components or local component state for one-page flows. Use global query/state libraries only when caching, deduplication, or shared async state is actually needed.
+8. **Keep errors and observability proportional**: Use the existing error envelope and structured logs, but do not invent new error codes, telemetry, or resilience layers unless they materially improve current user experience or system safety.
+9. **Delete before adding**: When touching an area with dead code, stale toggles, unused props, or redundant helpers, simplify first and then add the minimum needed change.
+10. **Frontend controls must be real**: Do not ship study-builder toggles, deck options, or motion controls unless they change current end-to-end behavior. Remove placeholder controls instead of styling around them.
+
+### Simplicity Review Checklist
+
+- What is the simplest implementation that satisfies the current request and existing tests?
+- Can this be solved by editing an existing module instead of introducing a new one?
+- Is every new field, option, component, or dependency used immediately by real runtime behavior?
+- Would a new abstraction remove present duplication, or is it only preparing for a hypothetical future?
+- Can any part of the change be removed without losing required behavior?
 
 ---
 
@@ -117,6 +144,14 @@ pip install pre-commit && pre-commit install
 - `.gitignore` includes Python/Node caches, coverage artifacts, and common debug logs.
 
 ## Recent Updates
+- 2026-03-08: Reworked the deck-generation and study UI around real streamed progress and animated card-stack interactions. Added `POST /v1/deck/generate/stream` with lifecycle + heartbeat SSE events, applied deck-generation quota enforcement to both generate routes, added a full-screen `GenerationStudio` overlay on the home page, cached completed decks client-side for instant first render on `/deck/[deckId]`, redesigned `DeckSwiper`/`Flashcard` into a flip-first stacked deck experience, and removed non-functional builder toggles so the homepage only exposes controls that change runtime behavior.
+- 2026-03-08: Added `PHASE5.md` and `PHASE6.md` as decision-complete implementation guides for the next RAG phases. Phase 5 now specifies anonymous workspaces, filesystem-backed PDF storage, Redis Queue ingestion, Chroma retrieval, and graceful RAG fallback semantics from the current Phase 4 baseline. Phase 6 now specifies retrieval-metric semantics, user-facing RAG transparency rules, and an optional debug route guarded behind an env flag.
+- 2026-03-08: Added explicit KISS / anti-overengineering guardrails for future agent tasks. Agents must now default to the smallest implementation that satisfies the current phase, avoid speculative abstractions and placeholder controls, and use the new simplicity review checklist before adding new layers, config, or dependencies.
+- 2026-02-15: Applied Phase 4 feedback remediation pass: hardened telemetry migration behavior and added follow-up backfill migration `20260215_130000_phase4_feedback_backfill.py` to enforce/repair expected telemetry columns across drifted environments, added raw `api_cost_usd` persistence alongside `api_cost_cents` on both `decks` and `card_examples` to preserve sub-cent cost analytics, tightened Redis TTL handling in `RateLimitMiddleware` to fail-open when `EXPIRE` cannot be applied/repaired, extracted shared token-usage parsing helpers into `backend/app/services/llm_usage.py`, added singleton reset helpers for `circuit_breaker` and `llm_client`, added direct unit coverage for `_estimate_duration_seconds`, and upgraded `EstimatePreview` loading UX from plain text to an accessible skeleton state with updated frontend tests.
+- 2026-02-15: Completed Phase 4 implementation from `PHASE4.md` and `PLAN.md`: added compute-only `POST /v1/deck/estimate` with new deck estimate schemas/utilities (`token_estimator`, `cost_calculator`), persisted generation telemetry (`tokens_used`, `api_cost_cents`, `generation_time_ms`) for deck/example flows with new migration `20260215_090000_add_phase4_telemetry_columns.py`, introduced Redis-backed rate limiting and deck quotas via `RateLimitMiddleware` (`RATE_LIMITED`, `QUOTA_EXCEEDED`, `Retry-After`), integrated process-local circuit breaker protection across LLM calls (`CIRCUIT_BREAKER_OPEN`), and shipped frontend estimate preview + Phase 4 error-code messaging updates. Added backend/frontend test coverage for all new controls (`backend 99/99`, `frontend 15/15`) and synced docs (`README.md`, `PHASE4.md`, `docs/schemas/deck-estimate.schema.json`).
+- 2026-02-14: Completed model-default alignment for OpenAI usage by updating backend runtime fallbacks from `gpt-4o-mini` to `gpt-5-nano` in `backend/app/services/llm_client.py` and `backend/app/services/example_generator.py`, and synchronized model strings in tests/docs (`backend/tests/unit/*`, `frontend/__tests__/example-panel.test.tsx`, `PHASE2.md`, `PHASE4.md`) to avoid stale references.
+- 2026-02-14: Switched default OpenAI model configuration to `gpt-5-nano` and aligned runtime wiring across native and Docker modes: added `OPENAI_MODEL` to `.env`/`.env.example`, passed `OPENAI_MODEL` into backend services in both Compose files, and updated `README.md` model/provider guidance plus required env variable lists accordingly.
+- 2026-02-14: Updated `README.md` with a dedicated LLM configuration section that explains how to change `OPENAI_MODEL` safely and documents the required code-path and dependency changes to switch providers (example: OpenAI to Anthropic), including Docker env pass-through and verification steps via `generation_metadata.model`.
 - 2026-02-14: Deep-audited and rewrote `PHASE4.md` against `PLAN.md` and current repository state. The guide now fixes stale readiness references (79 backend / 9 frontend), removes encoding corruption, aligns with Docker-optional local runtime policy, corrects frontend API snippet drift, tightens rate-limit/quota implementation guidance, and corrects circuit-breaker half-open semantics to single-probe behavior. Phase 4 status remains "Not started" with clarified deliverables, testing matrix, and exit criteria.
 - 2026-02-14: Added native DB credential override support for local runs: backend DB config now auto-loads project `.env`, supports split `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` settings, and prioritizes `DB_*`-derived connection strings when provided. This allows local Postgres passwords to be set via `DB_PASSWORD` without editing full `DATABASE_URL`. Updated `.env.example`, `.env`, and `README.md` with usage notes.
 - 2026-02-14: Clarified runtime policy in `README.md`: Docker is optional, and the project is supported in both Docker-based and full native (no Docker) modes. Added explicit no-Docker setup/run instructions (local PostgreSQL/Redis, env configuration, Alembic migration, and native backend/frontend startup).

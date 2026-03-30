@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.db.session import get_db
 from app.main import app
 from app.schemas.example import ExampleResponse, GenerationMetadata, TokenUsage
+from app.services.circuit_breaker import CircuitBreakerOpenError
 from app.services.example_generator import (
     CardNotFoundError,
     ExampleNotAllowedError,
@@ -24,7 +25,7 @@ def _make_example_response(card_id: UUID) -> ExampleResponse:
         steps=["Check root", "Move left or right", "Repeat until found"],
         pitfalls=["Do not assume tree is balanced"],
         generation_metadata=GenerationMetadata(
-            model="gpt-4o-mini",
+            model="gpt-5-nano",
             prompt_version="v1",
             tokens=TokenUsage(prompt=12, completion=24, total=36),
             timestamp="2026-01-01T00:00:00Z",
@@ -197,6 +198,27 @@ class TestGenerateCardExample:
         data = response.json()
         assert data["error"]["code"] == "LLM_TIMEOUT"
         assert data["error"]["retryable"] is True
+
+    @patch("app.api.v1.routes_card.get_example_generator")
+    def test_generate_example_circuit_breaker_open_returns_503(
+        self,
+        mock_get_generator: MagicMock,
+        client: TestClient,
+    ) -> None:
+        card_id = uuid4()
+        service = MagicMock()
+        service.generate_or_get_example = AsyncMock(
+            side_effect=CircuitBreakerOpenError(retry_after_seconds=9)
+        )
+        mock_get_generator.return_value = service
+
+        response = client.post(f"/v1/card/{card_id}/example", json={})
+
+        assert response.status_code == 503
+        data = response.json()
+        assert data["error"]["code"] == "CIRCUIT_BREAKER_OPEN"
+        assert data["error"]["retryable"] is True
+        assert data["error"]["details"]["retry_after_seconds"] == 9
 
     def test_generate_example_invalid_uuid_returns_400(
         self,

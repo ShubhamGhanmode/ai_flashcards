@@ -393,7 +393,7 @@ from app.prompts.registry import get_deck_prompts, PROMPT_VERSIONS
 logger = structlog.get_logger()
 
 # Configuration
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gpt-5-nano"
 DEFAULT_TEMPERATURE = 0.3
 DEFAULT_TIMEOUT = 60
 

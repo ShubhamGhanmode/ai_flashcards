@@ -5,8 +5,9 @@ from uuid import uuid4
 
 import pytest
 
+import app.services.llm_client as llm_client_module
 from app.schemas.deck import DeckGenerateRequest, LLMConcept, LLMDeckOutput
-from app.services.llm_client import LLMClient, SchemaValidationFailedError
+from app.services.llm_client import LLMClient, SchemaValidationFailedError, reset_llm_client
 
 
 class _RawMessage:
@@ -118,3 +119,9 @@ async def test_generate_deck_raises_after_failed_repair(
 
     assert "validation_errors" in exc.value.details
     assert mock_structured.ainvoke.await_count == 2
+
+
+def test_reset_llm_client_clears_cached_instance() -> None:
+    llm_client_module._llm_client = MagicMock(spec=LLMClient)
+    reset_llm_client()
+    assert llm_client_module._llm_client is None

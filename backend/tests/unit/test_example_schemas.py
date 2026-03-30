@@ -51,7 +51,7 @@ class TestExampleResponse:
             pitfalls=["Pitfall one"],
             source_refs=["src_1"],
             generation_metadata=GenerationMetadata(
-                model="gpt-4o-mini",
+                model="gpt-5-nano",
                 prompt_version="v1",
                 tokens=TokenUsage(prompt=1, completion=2, total=3),
                 timestamp="2026-01-01T00:00:00Z",
@@ -67,7 +67,7 @@ class TestExampleResponse:
                 card_id=uuid4(),
                 example="x" * 2001,
                 generation_metadata=GenerationMetadata(
-                    model="gpt-4o-mini",
+                    model="gpt-5-nano",
                     prompt_version="v1",
                     tokens=TokenUsage(prompt=1, completion=2, total=3),
                     timestamp="2026-01-01T00:00:00Z",

@@ -66,9 +66,9 @@
 ### Flow A: No resources (non-RAG)
 1. User enters a topic and selects difficulty.
 2. UI calls `/v1/deck/estimate` to show cost/time (optional UI step).
-3. UI calls `/v1/deck/generate`.
-4. API generates deck JSON, validates against schema, persists, returns deck.
-5. User swipes cards.
+3. UI calls `/v1/deck/generate/stream` and renders live lifecycle updates while generation runs.
+4. API generates deck JSON, validates against schema, persists, and streams the completed deck.
+5. User flips the active card and moves it through the stack.
 6. User taps "Show example" on cards where allowed.
 7. UI calls `/v1/card/{id}/example`, caches result, renders example.
 
@@ -292,6 +292,10 @@ frontend/
 - `POST /v1/deck/generate`
   - input: `{ topic, workspace_id?, difficulty_level, max_concepts?, scope? }`
   - output: `DeckResponse`
+
+- `POST /v1/deck/generate/stream`
+  - input: `{ topic, workspace_id?, difficulty_level, max_concepts?, scope? }`
+  - output: `text/event-stream` with lifecycle events and a final `DeckResponse` payload
 
 - `GET /v1/deck/{deck_id}`
   - output: `DeckResponse` persisted
@@ -549,15 +553,16 @@ Exit criteria:
 ### Deliverables
 - Pydantic schemas
 - `/deck/generate` endpoint
+- `/deck/generate/stream` lifecycle endpoint
 - Persist deck and cards
-- Deck UI with swiping
+- Deck UI with stacked-card animation and front/back flip
 
 ### Steps
 1. Implement Pydantic models for deck and example.
 2. Implement OpenAI call with Structured Outputs using the JSON schema.
 3. Validate output server-side, persist to Postgres.
 4. Implement `GET /deck/{deck_id}`.
-5. Build flashcard swiper UI showing title and bullets.
+5. Build flashcard deck UI with a streamed generation handoff, front/back card reveal, and stacked-pack navigation.
 
 Exit criteria:
 - For test topics, deck validates every time and renders in UI reliably.
